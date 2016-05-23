@@ -21,7 +21,7 @@ from PIL import ImageTk, Image
 # Igor's modules.
 import args
 import debug
-import parrot
+import sim.simParrot as parrot
 import remote
 import tracking
 from tools import annotate
@@ -72,9 +72,10 @@ class FlyTool(object):
         self.trajectory = args.trajectory
 
         # Create the dagger object and train it.
-        pdb.set_trace()
-        self.dag = dagger.DAgger(self.learning)
-        self.dag.train()
+        #pdb.set_trace()
+        if(self.iteration > 1):
+            self.dag = dagger.DAgger(self.learning)
+            self.dag.train()
 
         # Feature extraction parameters.
         window_size = (10, 5)
@@ -112,7 +113,7 @@ class FlyTool(object):
                                                                     nav_history_feats,
                                                                     nav_history_length)
 
-        directory = './data/%s/%s/' % (self.iteration, self.trajectory)
+        directory = '../data/%s/%s/' % (self.iteration, self.trajectory)
 
         # Start training.
         if self.iteration == 1:
@@ -143,7 +144,7 @@ class FlyTool(object):
             emergency_cmd = self.drone.get_cmd()
             if emergency_cmd is not None:
                 if emergency_cmd['L']:
-                    self.drone.send_cmd(self.drone.remote.land())
+                    #self.drone.send_cmd(self.drone.remote.land())
                     break
 
             image_filename = directory + '%s.jpg' % self.time_step
