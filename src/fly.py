@@ -36,6 +36,9 @@ class FlyTool(object):
         drone seamlessly. Also, it handles other things like printing debug
         information and saving saves.
     """
+    HZ = 20
+
+
     def __init__(self, args):
         self.gui = args.gui
         self.verbosity = args.verbosity
@@ -129,7 +132,10 @@ class FlyTool(object):
 
             if cmd is not None:
                 if cmd['T']:
+                    print("takeoff")
                     break
+            time.sleep(1.0/self.HZ)
+
         self.debug_queue.put({'MSG': 'Starting training for iteration %s, trajectory %s.', 'PRIORITY': 1})
         self.debugger.debug()
 
@@ -144,15 +150,15 @@ class FlyTool(object):
             emergency_cmd = self.drone.get_cmd()
             if emergency_cmd is not None:
                 if emergency_cmd['L']:
-                    #self.drone.send_cmd(self.drone.remote.land())
+                    self.drone.exit()
                     break
 
             image_filename = directory + '%s.jpg' % self.time_step
 
             expert_cmd = self.drone.get_cmd()
-            expert_cmd['X'] = expert_cmd['X']*0.15
+            expert_cmd['X'] = expert_cmd['X']#*0.15
             if self.iteration == 1:
-                expert_cmd['Y'] = 0.02
+                expert_cmd['Y'] = 0.2
                 if expert_cmd is not None and not feature_flag:
                     image = self.drone.get_image()
                     navdata = self.drone.get_navdata()
@@ -185,7 +191,7 @@ class FlyTool(object):
                     features = np.hstack((blah, features))
                     x = self.dag.test(features, self.iteration)
                     cmd = self.drone.default_cmd
-                    cmd['Y'] = 0.02
+                    cmd['Y'] = 0.2
                     cmd['X'] = x[0,0]*0.15
                     print(x)
                     self.feature_extractor.update(cmd, navdata)
@@ -200,6 +206,8 @@ class FlyTool(object):
                     feature_flag = False
                 except Queue.Empty:
                     pass
+
+            time.sleep(1.0/self.HZ)
                 
     def test(self, args):
         pass
@@ -380,7 +388,7 @@ def main():
         print('\nClosing.')
         sys.exit(1)
     except Exception:
-        pdb.set_trace()
+        #pdb.set_trace()
         print(traceback.format_exc())
         sys.exit(1)
 

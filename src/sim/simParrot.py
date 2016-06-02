@@ -21,6 +21,8 @@ import simReceiver as receiver
 from tracking import bounding_box
 from tracking import cam_shift
 
+from ssclient import SSClient
+from ssclient.messages import Vector3Msg
 
 class Parrot(object):
     """ Encapsulates the AR Parrot Drone 2.0.
@@ -28,6 +30,12 @@ class Parrot(object):
         Allows access to the drone's front and bottom cameras, the ability to
         send commands, and the ability to read the drone's navigation data.
     """
+
+    TOPIC_JOYSTICK = '/dagger/joystick'
+    TOPIC_CMD = '/dagger/cmd'
+    TOPIC_FRONT_CAMERA = '/dagger/camera'
+    TOPIC_NAV_DATA = '/dagger/nav'
+
     def __init__(self, debug_queue, error_queue, address, learning, iteration, trajectory):
         (self.controller_address, self.receiver_address) = address
         self.debug_queue = debug_queue
@@ -37,103 +45,78 @@ class Parrot(object):
         self.iterations = iteration
         self.trajectories = trajectory
 
-        # The default command that is sent to the drone.
-        self.default_cmd = {
-            'X': 0.0,
-            'Y': 0.0,
-            'Z': 0.0,
-            'R': 0.0,
-            'C': 0,
-            'T': False,
-            'L': False,
-            'S': False,
-            'A': False
-        }
+        self.latest_nav = None
+        self.latest_cmd = None
 
-        # The drone's address and ports.
-        self.drone_address = '192.168.1.1'
-        self.ports = {
-            'NAVDATA': 5554,
-            'VIDEO':   5555,
-            'CMD':     5556
-        }
+        try:
+            self.client = SSClient('localhost', 5557)
+            self.client.subscribe(self.TOPIC_JOYSTICK, self.on_joystick)
+            self.client.subscribe(self.TOPIC_FRONT_CAMERA, self.on_frame)
+            self.client.subscribe(self.TOPIC_NAV_DATA, self.on_nav)
+        except Exception as ex:
+            print(ex)
 
-        # The drone's cameras.
-        self.cameras = {
-            'FRONT':  0,
-            'BOTTOM': 3,
-            'CUSTOM': 4
-        }
-        self.active_camera = self.cameras['FRONT']
+        print('SimParrot connected')
 
-        
-        # The method of tracking we are going to use.
-        self.tracking = None
-
-        # Initialize all modules.
-        #self.remote = remote.Remote(self.debug_queue, self.error_queue)
-        self.controller = controller.Controller(self.debug_queue, self.error_queue)
-        self.receiver = receiver.Receiver(self.debug_queue, self.error_queue)
-
-        camera_address = ''#localhost 5555
         self.image_queue = Queue.Queue(maxsize=1)
-        self.camera = camera.Camera(self.debug_queue, self.error_queue, camera_address, self.image_queue)
-        self.camera.daemon = True
-        self.camera.start()
 
     def get_navdata(self):
-        navdata = self.receiver.get_navdata()
-        return navdata
+        return self.latest_nav
 
     def get_image(self):
         image = self.image_queue.get(block=True)
         return image
 
     def get_cmd(self):
-        #cmd = self.remote.get_input()
-        #cmd = {"S": 0.0, "A": 0.0, "C": 0.0, "R": 0.0, "T": 0.0, "Y": 0, "X": 0, "Z": 0, "L": 0.0}
-        cmd = self.receiver.get_cmd()
-        return cmd
+        return self.latest_cmd
+
 
     def send_cmd(self, cmd):
-        cmd_json = json.dumps(cmd)
-        self.controller.send_cmd(cmd_json)
+        if(cmd):
+            x = cmd['Y']
+            y = cmd['X']
+            z = cmd['Z']
+            msg = Vector3Msg(x, y, -z)
+            self.client.publish(msg, self.TOPIC_CMD)
+
 
     def exit(self):
-        """ Lands the drone, closes all cv windows and exits.
-        """
-        self.land()
-        cv2.destroyAllWindows()
+        print('Drone exit')
 
 
-def _test_parrot():
-    """ Tests the parrot module
-    """
-    pdb.set_trace()
+    def on_joystick(self, joy):
+        #print("joy")
+        self.latest_cmd = {
+            'X': joy.getRightX(),
+            'Y': joy.getRightY(),
+            'Z': joy.getLeftY(),
+            'R': joy.getLeftX(),
+            'C': 0,
+            'T': joy.getButtonA(),
+            'L': joy.getButtonB(),
+            'S': joy.getButtonX(),
+            'A': joy.getButtonY()
+        }
 
-    nav_rate = 1
-    save = True
-    iterations = 3
-    trajectories = 2
-    parrot = Parrot(save, iterations, trajectories)
-    parrot.init_camera()
-    parrot.init_receiver(nav_rate)
-    parrot.init_feature_extract()
 
-    while True:
-        image = parrot.get_image()
-        parrot.get_navdata()
+    def on_frame(self, data):
+        #print("Frame")
+        array = np.fromstring(data.getBytes(), dtype='uint8')
+        img = cv2.imdecode(array, 1)
 
-        visual_features = parrot.get_visual_features()
-        # nav_features = parrot.get_nav_features()
-        with open('feat.dat', 'a') as out:
-            np.savetxt(out, visual_features)
+        try:
+            self.image_queue.put(img, block=False)
+        except Queue.Full:
+            pass
+        except Exception as ex:
+            print(ex)
 
-        cv2.imshow('Image', image)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
-            break
 
-if __name__ == '__main__':
-    import pdb
-    _test_parrot()
+    def on_nav(self, nav):
+        #print("Nav")
+        altitude = nav.getAltitude()
+        roll = nav.getRoll()
+        pitch = nav.getPitch()
+        yaw = nav.getYaw()
+
+        self.latest_nav = {'demo' : {'altitude':altitude, 'rotation': {'roll':roll, 'pitch':pitch, 'yaw':yaw } } }

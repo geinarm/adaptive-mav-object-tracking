@@ -43,8 +43,10 @@ class OpticalFlow(object):
         """
         # Get the cv flow using farneback
         cur_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        out = np.copy(cur_gray)
         flow = cv2.calcOpticalFlowFarneback(self.prev_gray,
                                             cur_gray,
+                                            flow=out,
                                             pyr_scale=self.pyr_scale,
                                             levels=self.levels,
                                             winsize=self.winsize,
