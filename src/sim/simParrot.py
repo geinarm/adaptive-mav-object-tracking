@@ -36,17 +36,22 @@ class Parrot(object):
     TOPIC_FRONT_CAMERA = '/dagger/camera'
     TOPIC_NAV_DATA = '/dagger/nav'
 
-    def __init__(self, debug_queue, error_queue, address, learning, iteration, trajectory):
-        (self.controller_address, self.receiver_address) = address
-        self.debug_queue = debug_queue
-        self.error_queue = error_queue
-
-        self.learning = learning
-        self.iterations = iteration
-        self.trajectories = trajectory
+    def __init__(self):
 
         self.latest_nav = None
         self.latest_cmd = None
+
+        # The default command that is sent to the drone.
+        self.default_cmd = {
+            'X': 0.0,
+            'Y': 0.0,
+            'Z': 0.0,
+            'R': 0.0,
+            'C': 0,
+            'T': False,
+            'L': False,
+            'S': False
+        }        
 
         try:
             self.client = SSClient('localhost', 5557)

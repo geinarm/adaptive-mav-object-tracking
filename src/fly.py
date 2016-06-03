@@ -47,6 +47,8 @@ class FlyTool(object):
         self.error_queue = Queue.Queue()
         self.debugger = debug.Debug(self.verbosity, self.debug_queue, self.error_queue)
 
+        self.FORWARD_SPEED = 0.4
+
         if args.command == 'train':
             self.train(args)
         elif args.command == 'test':
@@ -55,6 +57,55 @@ class FlyTool(object):
             self.execute(args)
         elif args.command == 'annotate':
             self.annotate(args)
+        elif args.command == 'run':
+            self.run() 
+
+
+    def run(self):
+        self.iteration = 2
+        self.learning = 'tikhonov'
+        self.start_drone()
+
+        # Loop until the drone has landed.
+        feature_flag = False
+        while True:
+            # Land to avoid a crash.
+            emergency_cmd = self.drone.get_cmd()
+            if emergency_cmd is not None:
+                if emergency_cmd['L']:
+                    self.drone.exit()
+                    break
+
+            expert_cmd = self.drone.get_cmd()
+            expert_cmd['X'] = expert_cmd['X']#*0.15
+
+            if not feature_flag:
+                image = self.drone.get_image()
+                navdata = self.drone.get_navdata()
+                self.feature_extractor.extract(image)
+                feature_flag = True
+            try:
+                features = self.feature_queue.get(block=False)
+
+                # Get the command associated with this state.
+                blah = np.array([0])
+                blah.shape = (1, 1)
+                features_p = np.hstack((blah, features))
+                x = self.dag.test(features_p, self.iteration)
+                cmd = self.drone.default_cmd
+                cmd['Y'] = self.FORWARD_SPEED
+                cmd['X'] = x[0,0]#*0.15
+                print(x)
+                self.feature_extractor.update(cmd, navdata)
+
+
+                self.drone.send_cmd(cmd)
+                feature_flag = False
+            except Queue.Empty:
+                pass
+
+            time.sleep(1.0/self.HZ)        
+
 
     def train(self, args):
         """ Starts training. Make sure you have annotated the images first.
@@ -98,12 +149,7 @@ class FlyTool(object):
         # Create the drone object.
         self.debug_queue.put({'MSG': ':: Initializing parrot.', 'PRIORITY': 1})
         self.debugger.debug()
-        self.drone = parrot.Parrot(self.debug_queue,
-                                   self.error_queue,
-                                   self.address,
-                                   self.learning,
-                                   self.iteration,
-                                   self.trajectory)
+        self.drone = parrot.Parrot()
 
         self.feature_queue = Queue.Queue(maxsize=1)
         init_image = self.drone.get_image()
@@ -158,7 +204,7 @@ class FlyTool(object):
             expert_cmd = self.drone.get_cmd()
             expert_cmd['X'] = expert_cmd['X']#*0.15
             if self.iteration == 1:
-                expert_cmd['Y'] = 0.2
+                expert_cmd['Y'] = self.FORWARD_SPEED
                 if expert_cmd is not None and not feature_flag:
                     image = self.drone.get_image()
                     navdata = self.drone.get_navdata()
@@ -188,11 +234,11 @@ class FlyTool(object):
                     # Get the command associated with this state.
                     blah = np.array([0])
                     blah.shape = (1, 1)
-                    features = np.hstack((blah, features))
-                    x = self.dag.test(features, self.iteration)
+                    features_p = np.hstack((blah, features))
+                    x = self.dag.test(features_p, self.iteration)
                     cmd = self.drone.default_cmd
-                    cmd['Y'] = 0.2
-                    cmd['X'] = x[0,0]*0.15
+                    cmd['Y'] = self.FORWARD_SPEED
+                    cmd['X'] = x[0,0]#*0.15
                     print(x)
                     self.feature_extractor.update(cmd, navdata)
 
@@ -238,7 +284,7 @@ class FlyTool(object):
 
         self.debug_queue.put({'MSG': ':: Starting annotation for iteration %s, trajectory %s.' % (self.iteration, self.trajectory), 'PRIORITY': 1})
         self.debug_queue.put({'MSG': ':: To annotate, get the optimal command using the left annolog stick and press button 5 to save.', 'PRIORITY': 1})
-        self.directory = './data/%s/%s/' % (args.iteration, args.trajectory)
+        self.directory = '../data/%s/%s/' % (args.iteration, args.trajectory)
         self.debug_queue.put({'MSG': ':: Looking in directory %s for images and commands.' % self.directory, 'PRIORITY': 1})
 
         # Load the commands associated with this iteration and trajectory.
@@ -252,6 +298,44 @@ class FlyTool(object):
         self.debugger.debug()
         self.update_annotate_gui()
         self.root.mainloop()
+
+
+    def start_drone(self):
+        # Get the arguments for this subcommand.
+
+        # Create the dagger object and train it.
+        #pdb.set_trace()
+        if(self.iteration > 1):
+            self.dag = dagger.DAgger(self.learning)
+            print('Start training')
+            #self.dag.train()
+            #self.dag.save_coef()
+            self.dag.load_coef()
+
+        # Feature extraction parameters.
+        window_size = (10, 5)
+        overlap = 0.25
+        cmd_history_feats = 7    # the approximate number of cmd history features
+        cmd_history_length = 10  # keep a running list of the last 10 cmds
+        nav_history_feats = 7    # the approximate number of nav history features
+        nav_history_length = 10  # keep a running list of the last 10 nav data
+
+        # Create the drone object.
+        self.debug_queue.put({'MSG': ':: Initializing parrot.', 'PRIORITY': 1})
+        self.debugger.debug()
+        self.drone = parrot.Parrot()
+
+        self.feature_queue = Queue.Queue(maxsize=1)
+        init_image = self.drone.get_image()
+        self.feature_extractor = feature_extractor.FeatureExtractor(self.feature_queue,
+                                                                    init_image,
+                                                                    window_size,
+                                                                    overlap,
+                                                                    cmd_history_feats,
+                                                                    cmd_history_length,
+                                                                    nav_history_feats,
+                                                                    nav_history_length)
+
 
     def create_annotate_gui(self):
         """ Creates the gui for the annotation tool.

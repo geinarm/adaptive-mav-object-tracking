@@ -20,8 +20,8 @@ class DAgger(object):
         self.alpha = 0.5
 
         # Load the previous aggregate.
-        self.aggregate_features_filename = './data/aggregate_features.data'
-        self.aggregate_cmds_filename = './data/aggregate_cmds.data'
+        self.aggregate_features_filename = '../data/aggregate_features.data'
+        self.aggregate_cmds_filename = '../data/aggregate_cmds.data'
 
         # Load the features into numpy.
         try:
@@ -41,7 +41,7 @@ class DAgger(object):
         # Get the dataset corresponding to the current itteration.
         for i in range(1, iterations+1):
             # Load the current data.
-            current_directory = './data/%s/' % i
+            current_directory = '../data/%s/' % i
 
             cur_trajectory = 1
             while True:
@@ -112,6 +112,8 @@ class DAgger(object):
 
         self.ridge = Ridge(alpha=self.alpha)
         self.ridge.fit(aggregate_features, aggregate_cmds)
+        print(self.ridge.coef_)
+        print(self.ridge.get_params())
 
     def test(self, x, iteration):
         """ Try to fit the new state to a left/right control input.
@@ -119,13 +121,31 @@ class DAgger(object):
         x_value = self.ridge.predict(x)
         return x_value
 
+    def save_coef(self):
+        with open('../data/coef.txt', 'w') as out:
+            coef = np.array(self.ridge.coef_)
+            np.savetxt(out, coef)
+
+        with open('../data/intercept.txt', 'w') as out:
+            intercept = np.array(self.ridge.intercept_)
+            np.savetxt(out, intercept)
+
+    def load_coef(self):
+        coef = np.loadtxt('../data/coef.txt', ndmin=2)
+        intercept = np.loadtxt('../data/intercept.txt')
+
+        self.ridge = Ridge(alpha=self.alpha)
+        self.ridge.coef_ = coef
+        self.ridge.intercept_ = intercept
+        
+
 
 def _test_dagger():
     pdb.set_trace()
     iteration = 1
     d = DAgger('tikhonov')
     d.train()
-    features = d.load_features('./data/1/1/features.data')
+    features = d.load_features('../data/1/1/features.data')
     features = d.parse_features(features) 
     pdb.set_trace()
     value = d.test(features, 1)

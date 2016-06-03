@@ -101,6 +101,7 @@ class FlyArgs(object):
         ann_pos_args.add_argument('iteration', type=int, help=iteration_help)
         ann_pos_args.add_argument('trajectory', type=int, help=trajectory_help)
 
+        run_parser = subparsers.add_parser('run', help='run with no arguments', add_help=False)
         
     def parse(self):
         self.args = self.arg_parser.parse_args()
@@ -117,6 +118,7 @@ class FlyArgs(object):
         elif self.args.command == 'annotate':
             self._parse_iteration()
             self._parse_trajectory()
+
 
     def _parse_address(self, i):
         assert i == 0 or i == 1
