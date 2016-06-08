@@ -88,8 +88,8 @@ class FlyArgs(object):
         exec_opt_args.add_argument('-h', '--help', action='help', help=help_help)
 
         exec_pos_args = exec_parser.add_argument_group('Training arguments', '')
-        exec_pos_args.add_argument('address', type=str, nargs=2, help=address_help)
-        exec_pos_args.add_argument('learning', type=str, help=learning_help)
+        #exec_pos_args.add_argument('address', type=str, nargs=2, help=address_help)
+        #exec_pos_args.add_argument('learning', type=str, help=learning_help)
         exec_pos_args.add_argument('iteration', type=int, help=iteration_help)
         exec_pos_args.add_argument('trajectory', type=int, help=trajectory_help)
 
@@ -110,9 +110,9 @@ class FlyArgs(object):
         if self.args.command == 'train':
             self._parse_learning()
         elif self.args.command == 'test' or self.args.command == 'exec':
-            self._parse_address(0)
-            self._parse_address(1)
-            self._parse_learning()
+            #self._parse_address(0)
+            #self._parse_address(1)
+            #self._parse_learning()
             self._parse_iteration()
             self._parse_trajectory()
         elif self.args.command == 'annotate':

@@ -120,10 +120,11 @@ class FlyTool(object):
 
     def execute(self, args):
         # Get the arguments for this subcommand.
-        self.address = args.address
-        self.learning = args.learning
+        #self.address = args.address
+        #self.learning = args.learning
         self.iteration = args.iteration
         self.trajectory = args.trajectory
+        self.learning = 'tikhonov'
 
         # Create the dagger object and train it.
         #pdb.set_trace()
@@ -142,8 +143,8 @@ class FlyTool(object):
         self.debug_queue.put({'MSG': 'Parrot AR 2 Flying Tool :: Execution Mode', 'PRIORITY': 1})
         self.debug_queue.put({'MSG': ':: GUI flag set to %s.' % str(self.gui), 'PRIORITY': 1})
         self.debug_queue.put({'MSG': ':: Verbosity set to %d.' % self.verbosity, 'PRIORITY': 1})
-        self.debug_queue.put({'MSG': ':: Accessing controller server at: %s.' % self.address[0], 'PRIORITY': 1})
-        self.debug_queue.put({'MSG': ':: Accessing navigation data server at: %s.' % self.address[1], 'PRIORITY': 1})
+        #self.debug_queue.put({'MSG': ':: Accessing controller server at: %s.' % self.address[0], 'PRIORITY': 1})
+        #self.debug_queue.put({'MSG': ':: Accessing navigation data server at: %s.' % self.address[1], 'PRIORITY': 1})
         self.debug_queue.put({'MSG': ':: Accessing camera stream server at: tcp://192.168.1.1:5555.', 'PRIORITY': 1})
 
         # Create the drone object.

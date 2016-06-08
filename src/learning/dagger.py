@@ -112,8 +112,6 @@ class DAgger(object):
 
         self.ridge = Ridge(alpha=self.alpha)
         self.ridge.fit(aggregate_features, aggregate_cmds)
-        print(self.ridge.coef_)
-        print(self.ridge.get_params())
 
     def test(self, x, iteration):
         """ Try to fit the new state to a left/right control input.
