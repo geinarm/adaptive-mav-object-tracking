@@ -11,6 +11,7 @@ import cv2
 import json
 import math
 import sys
+import os.path
 import time
 import traceback
 import Queue
@@ -95,7 +96,7 @@ class FlyTool(object):
                 cmd = self.drone.default_cmd
                 cmd['Y'] = self.FORWARD_SPEED
                 cmd['X'] = x[0,0]#*0.15
-                print(x)
+                #print(x)
                 self.feature_extractor.update(cmd, navdata)
 
 
@@ -308,10 +309,14 @@ class FlyTool(object):
         #pdb.set_trace()
         if(self.iteration > 1):
             self.dag = dagger.DAgger(self.learning)
-            print('Start training')
-            #self.dag.train()
-            #self.dag.save_coef()
-            self.dag.load_coef()
+
+            if(os.path.isfile('../data/coef.txt')):
+                print('Load training')
+                self.dag.load_coef()
+            else:                
+                print('Start training')
+                self.dag.train()
+                self.dag.save_coef()
 
         # Feature extraction parameters.
         window_size = (10, 5)
